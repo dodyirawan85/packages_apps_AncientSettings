@@ -18,6 +18,7 @@ package com.ancient.settings.fragments;
 
 import android.app.AlertDialog;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
@@ -39,13 +40,18 @@ import com.android.internal.logging.nano.MetricsProto;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
 
+import net.margaritov.preference.colorpicker.ColorPickerPreference;
+import com.ancient.settings.preferences.CustomSeekBarPreference;
+
 public class CustomCarrierLabel extends SettingsPreferenceFragment
         implements Preference.OnPreferenceChangeListener {
 
     public static final String TAG = "CarrierLabel";
     private static final String CUSTOM_CARRIER_LABEL = "custom_carrier_label";
+    private static final String STATUS_BAR_CARRIER_COLOR = "status_bar_carrier_color";
 
     private PreferenceScreen mCustomCarrierLabel;
+    private ColorPickerPreference mCarrierColor;
     private String mCustomCarrierLabelText;
 
     @Override
@@ -58,6 +64,20 @@ public class CustomCarrierLabel extends SettingsPreferenceFragment
 
         mCustomCarrierLabel = (PreferenceScreen) findPreference(CUSTOM_CARRIER_LABEL);
         updateCustomLabelTextSummary();
+
+        mCarrierColor =
+                (ColorPickerPreference) findPreference(STATUS_BAR_CARRIER_COLOR);
+        int intColor = Settings.System.getIntForUser(resolver,
+                Settings.System.STATUS_BAR_CARRIER_COLOR, 0xFFFFFFFF,
+                UserHandle.USER_CURRENT);
+        String hexColor = ColorPickerPreference.convertToARGB(intColor);
+        mCarrierColor.setNewPreviewColor(intColor);
+        if (intColor != 0xFFFFFFFF) {
+            mCarrierColor.setSummary(hexColor);
+        } else {
+            mCarrierColor.setSummary(R.string.default_string);
+        }
+        mCarrierColor.setOnPreferenceChangeListener(this);
     }
 
     @Override
@@ -99,6 +119,19 @@ public class CustomCarrierLabel extends SettingsPreferenceFragment
             alert.setNegativeButton(getString(android.R.string.cancel), null);
             alert.show();
             return true;
+        } else if (preference == mCarrierColor) {
+            String hex = ColorPickerPreference.convertToARGB(
+                Integer.parseInt(String.valueOf(newValue)));
+            int value = ColorPickerPreference.convertToColorInt(hex);
+            Settings.System.putIntForUser(resolver,
+                Settings.System.STATUS_BAR_CARRIER_COLOR, value,
+                UserHandle.USER_CURRENT);
+            if (value != 0xFFFFFFFF) {
+                mCarrierColor.setSummary(hex);
+            } else {
+                mCarrierColor.setSummary(R.string.default_string);
+            }
+            return true;
         }
         return false;
     }
@@ -111,6 +144,18 @@ public class CustomCarrierLabel extends SettingsPreferenceFragment
         } else {
             mCustomCarrierLabel.setSummary(mCustomCarrierLabelText);
         }
+    }
+
+    public static void reset(Context mContext) {
+        ContentResolver resolver = mContext.getContentResolver();
+
+        Settings.System.putIntForUser(resolver,
+                Settings.System.STATUS_BAR_SHOW_CARRIER, 0, UserHandle.USER_CURRENT);
+        Settings.System.putIntForUser(resolver,
+                Settings.System.STATUS_BAR_CARRIER_FONT_STYLE, 14, UserHandle.USER_CURRENT);
+        Settings.System.putIntForUser(resolver,
+                Settings.System.STATUS_BAR_CARRIER_COLOR, 0xFFFFFFFF, UserHandle.USER_CURRENT);
+        Settings.System.putString(resolver, Settings.System.CUSTOM_CARRIER_LABEL, "");
     }
 
     @Override
